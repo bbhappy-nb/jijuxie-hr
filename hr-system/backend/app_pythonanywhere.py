@@ -1119,5 +1119,80 @@ def create_budget():
     return jsonify({"id": b.id, "message": "创建成功"})
 
 
+# ===== 用户管理 =====
+@app.get("/api/users")
+@require_auth
+def list_users():
+    db = next(get_db())
+    users = db.query(User).all()
+    result = [{
+        "id": u.id, "username": u.username, "role": u.role,
+        "employee_id": u.employee_id, "is_active": u.is_active,
+        "last_login": str(u.last_login) if u.last_login else None,
+        "created_at": str(u.created_at) if u.created_at else None,
+    } for u in users]
+    db.close()
+    return jsonify(result)
+
+
+@app.post("/api/users")
+@require_auth
+def create_user():
+    db = next(get_db())
+    data = request.get_json()
+    exists = db.query(User).filter(User.username == data["username"]).first()
+    if exists:
+        db.close()
+        return jsonify({"detail": "用户名已存在"}), 400
+    u = User(
+        username=data["username"],
+        password_hash=hash_password(data.get("password", "123456")),
+        role=data.get("role", "user"),
+        employee_id=data.get("employee_id"),
+    )
+    db.add(u)
+    db.commit()
+    db.refresh(u)
+    db.close()
+    return jsonify({"id": u.id, "message": "用户创建成功"})
+
+
+@app.put("/api/users/<int:user_id>")
+@require_auth
+def update_user(user_id):
+    db = next(get_db())
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        db.close()
+        return jsonify({"detail": "不存在"}), 404
+    data = request.get_json()
+    if "password" in data and data["password"]:
+        u.password_hash = hash_password(data["password"])
+    if "role" in data:
+        u.role = data["role"]
+    if "is_active" in data:
+        u.is_active = data["is_active"]
+    db.commit()
+    db.close()
+    return jsonify({"message": "更新成功"})
+
+
+@app.delete("/api/users/<int:user_id>")
+@require_auth
+def delete_user(user_id):
+    db = next(get_db())
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        db.close()
+        return jsonify({"detail": "不存在"}), 404
+    if u.role == "admin":
+        db.close()
+        return jsonify({"detail": "不能删除管理员"}), 400
+    db.delete(u)
+    db.commit()
+    db.close()
+    return jsonify({"message": "删除成功"})
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=8000)
