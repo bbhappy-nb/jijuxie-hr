@@ -1,0 +1,7 @@
+flask==3.0.0
+flask-cors==4.0.0
+sqlalchemy==2.0.23
+bcrypt==4.2.1
+python-jose[cryptography]==3.3.0
+openpyxl==3.1.2
+python-dotenv==1.0.0
