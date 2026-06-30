@@ -1,6 +1,8 @@
 """应用配置"""
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
+import secrets
 
 
 class Settings(BaseSettings):
@@ -11,8 +13,8 @@ class Settings(BaseSettings):
     # 数据库
     DATABASE_URL: str = "sqlite:///./hr_system.db"
 
-    # JWT
-    SECRET_KEY: str = "hr-system-secret-key-change-in-production"
+    # JWT — 生产环境必须通过环境变量设置，否则每次重启自动生成随机密钥
+    SECRET_KEY: str = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8小时
 

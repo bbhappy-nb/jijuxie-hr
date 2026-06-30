@@ -33,7 +33,40 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ConfigProvider locale={zhCN} theme={{ token: { colorPrimary: '#1677ff', borderRadius: 6 } }}>
+    <ConfigProvider locale={zhCN} theme={{
+      token: {
+        colorPrimary: '#2b5aed',
+        colorSuccess: '#10b981',
+        colorWarning: '#f59e0b',
+        colorError: '#ef4444',
+        borderRadius: 8,
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+        fontSize: 14,
+        colorBgLayout: '#f5f6fa',
+        colorBorderSecondary: '#e8ecf1',
+      },
+      components: {
+        Card: {
+          borderRadiusLG: 12,
+          paddingLG: 24,
+        },
+        Statistic: {
+          contentFontSize: 28,
+        },
+        Menu: {
+          darkItemBg: 'transparent',
+          darkSubMenuItemBg: 'transparent',
+        },
+        Layout: {
+          siderBg: '#101828',
+        },
+        Table: {
+          headerBg: '#f8fafc',
+          headerColor: '#475569',
+          rowHoverBg: '#f1f5f9',
+        },
+      },
+    }}>
       <AntApp>
         <BrowserRouter>
           <Routes>

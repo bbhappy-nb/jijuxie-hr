@@ -53,14 +53,22 @@ const menuItems = [
       { key: '/contracts/resignation', label: '离职管理' },
     ],
   },
-  { key: '/system', icon: <SettingOutlined />, label: '系统设置' },
+  { key: '/system', icon: <SettingOutlined />, label: '系统设置', roles: ['admin'] },
 ];
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
+
+  // 根据角色过滤菜单
+  const visibleMenuItems = menuItems.filter(item => {
+    if ('roles' in item && Array.isArray(item.roles)) {
+      return item.roles.includes(user?.role || '');
+    }
+    return true;
+  });
   const { token: { colorBgContainer, borderRadiusLG } } = theme.useToken();
 
   const handleMenuClick = ({ key }: { key: string }) => navigate(key);
@@ -87,7 +95,7 @@ export default function MainLayout() {
         <Menu
           theme="dark" mode="inline" selectedKeys={[location.pathname]}
           defaultOpenKeys={getOpenKeys()}
-          items={menuItems} onClick={handleMenuClick}
+          items={visibleMenuItems} onClick={handleMenuClick}
         />
       </Sider>
       <Layout>

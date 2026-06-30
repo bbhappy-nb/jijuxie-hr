@@ -65,6 +65,37 @@ def require_auth(f):
             user = db.query(User).filter(User.username == username).first()
             if not user:
                 return jsonify({"detail": "用户不存在"}), 401
+            if not user.is_active:
+                return jsonify({"detail": "账号已被禁用"}), 403
+            request.current_user = user
+        except Exception:
+            return jsonify({"detail": "Token无效"}), 401
+        finally:
+            db.close()
+        return f(*args, **kwargs)
+    return decorated
+
+
+def require_admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"detail": "未登录"}), 401
+        token = auth_header.split(" ")[1]
+        db = SessionLocal()
+        try:
+            from jose import JWTError, jwt
+            from app.config import settings
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            username = payload.get("sub")
+            user = db.query(User).filter(User.username == username).first()
+            if not user:
+                return jsonify({"detail": "用户不存在"}), 401
+            if not user.is_active:
+                return jsonify({"detail": "账号已被禁用"}), 403
+            if user.role != "admin":
+                return jsonify({"detail": "需要管理员权限"}), 403
             request.current_user = user
         except Exception:
             return jsonify({"detail": "Token无效"}), 401
@@ -1649,9 +1680,9 @@ def create_budget():
     return jsonify({"id": b.id, "message": "创建成功"})
 
 
-# ===== 用户管理 =====
+# ===== 用户管理 (仅管理员) =====
 @app.get("/api/users")
-@require_auth
+@require_admin
 def list_users():
     db = next(get_db())
     users = db.query(User).all()
@@ -1666,7 +1697,7 @@ def list_users():
 
 
 @app.post("/api/users")
-@require_auth
+@require_admin
 def create_user():
     db = next(get_db())
     data = request.get_json()
@@ -1674,10 +1705,14 @@ def create_user():
     if exists:
         db.close()
         return jsonify({"detail": "用户名已存在"}), 400
+    # 不允许非管理员创建admin账号
+    role = data.get("role", "user")
+    if role == "admin" and request.current_user.role != "admin":
+        role = "user"
     u = User(
         username=data["username"],
         password_hash=hash_password(data.get("password", "123456")),
-        role=data.get("role", "user"),
+        role=role,
         employee_id=data.get("employee_id"),
     )
     db.add(u)
@@ -1688,40 +1723,107 @@ def create_user():
 
 
 @app.put("/api/users/<int:user_id>")
-@require_auth
+@require_admin
 def update_user(user_id):
     db = next(get_db())
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
         db.close()
         return jsonify({"detail": "不存在"}), 404
+
+    current_user = request.current_user
     data = request.get_json()
+
+    # 规则1: 不能修改自己的角色 (防止自我提权)
+    if "role" in data and u.id == current_user.id:
+        db.close()
+        return jsonify({"detail": "不能修改自己的角色"}), 403
+
+    # 规则2: 只有管理员能修改密码，且不能修改其他管理员的密码
     if "password" in data and data["password"]:
+        if u.role == "admin" and u.id != current_user.id:
+            db.close()
+            return jsonify({"detail": "不能修改其他管理员的密码"}), 403
         u.password_hash = hash_password(data["password"])
+
     if "role" in data:
+        # 不能降级自己或最后一个管理员
+        admin_count = db.query(User).filter(User.role == "admin", User.is_active == 1).count()
+        if u.role == "admin" and data["role"] != "admin" and admin_count <= 1:
+            db.close()
+            return jsonify({"detail": "不能删除最后一个管理员"}), 400
         u.role = data["role"]
+
     if "is_active" in data:
+        # 不能禁用自己
+        if u.id == current_user.id:
+            db.close()
+            return jsonify({"detail": "不能禁用自己的账号"}), 403
+        # 不能禁用最后一个活跃管理员
+        if u.role == "admin" and data["is_active"] == 0:
+            active_admins = db.query(User).filter(User.role == "admin", User.is_active == 1).count()
+            if active_admins <= 1:
+                db.close()
+                return jsonify({"detail": "不能禁用最后一个活跃管理员"}), 400
         u.is_active = data["is_active"]
+
     db.commit()
     db.close()
     return jsonify({"message": "更新成功"})
 
 
 @app.delete("/api/users/<int:user_id>")
-@require_auth
+@require_admin
 def delete_user(user_id):
     db = next(get_db())
     u = db.query(User).filter(User.id == user_id).first()
     if not u:
         db.close()
         return jsonify({"detail": "不存在"}), 404
-    if u.role == "admin":
+    current_user = request.current_user
+
+    # 不能删除自己
+    if u.id == current_user.id:
         db.close()
-        return jsonify({"detail": "不能删除管理员"}), 400
+        return jsonify({"detail": "不能删除自己的账号"}), 403
+
+    # 不能删除最后一个管理员
+    if u.role == "admin":
+        admin_count = db.query(User).filter(User.role == "admin").count()
+        if admin_count <= 1:
+            db.close()
+            return jsonify({"detail": "不能删除最后一个管理员"}), 400
+
     db.delete(u)
     db.commit()
     db.close()
     return jsonify({"message": "删除成功"})
+
+
+# ===== 自修改密码 (任何登录用户) =====
+@app.put("/api/auth/change-password")
+@require_auth
+def change_own_password():
+    db = next(get_db())
+    data = request.get_json()
+    user = request.current_user
+
+    old_pw = data.get("old_password")
+    new_pw = data.get("new_password")
+    if not old_pw or not new_pw:
+        db.close()
+        return jsonify({"detail": "旧密码和新密码不能为空"}), 400
+    if not verify_password(old_pw, user.password_hash):
+        db.close()
+        return jsonify({"detail": "旧密码错误"}), 400
+    if len(new_pw) < 6:
+        db.close()
+        return jsonify({"detail": "新密码至少6位"}), 400
+
+    user.password_hash = hash_password(new_pw)
+    db.commit()
+    db.close()
+    return jsonify({"message": "密码修改成功"})
 
 
 if __name__ == "__main__":

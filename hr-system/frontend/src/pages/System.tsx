@@ -82,11 +82,18 @@ export default function SystemSettings() {
       </Card>
 
       <Card title="修改密码" style={{ maxWidth: 600 }}>
-        <Form layout="vertical" onFinish={() => message.success('密码修改成功（演示）')}>
-          <Form.Item name="old_password" label="原密码" rules={[{ required: true }]}>
+        <Form layout="vertical" onFinish={async (vals) => {
+          try {
+            await api.put('/auth/change-password', { old_password: vals.old_password, new_password: vals.new_password });
+            message.success('密码修改成功');
+          } catch (e: any) {
+            message.error(e.response?.data?.detail || '修改失败');
+          }
+        }}>
+          <Form.Item name="old_password" label="原密码" rules={[{ required: true, message: '请输入原密码' }]}>
             <Input.Password />
           </Form.Item>
-          <Form.Item name="new_password" label="新密码" rules={[{ required: true }]}>
+          <Form.Item name="new_password" label="新密码" rules={[{ required: true, min: 6, message: '新密码至少6位' }]}>
             <Input.Password />
           </Form.Item>
           <Form.Item>
