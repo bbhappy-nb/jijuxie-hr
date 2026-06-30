@@ -40,7 +40,9 @@ const menuItems = [
     key: 'payroll', icon: <DollarOutlined />, label: '薪酬管理',
     children: [
       { key: '/payroll/list', label: '工资表' },
-      { key: '/payroll/summary', label: '薪酬汇总' },
+      { key: '/payroll/summary', label: '社保配置' },
+      { key: '/payroll/templates', label: '薪资模板' },
+      { key: '/payroll/dashboard', label: '薪酬分析' },
     ],
   },
   {

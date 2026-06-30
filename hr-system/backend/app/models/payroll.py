@@ -60,12 +60,62 @@ class Payroll(Base):
     total_deduction = Column(Float, default=0, comment="扣款合计")
     net_salary = Column(Float, default=0, comment="实发工资")
 
+    # 新增: 模板关联 + 专项扣除 + 发放时间
+    template_id = Column(Integer, ForeignKey("salary_templates.id"), nullable=True, comment="薪资结构模板")
+    special_deduction = Column(Float, default=0, comment="月度专项附加扣除合计")
+    paid_at = Column(DateTime, nullable=True, comment="发放时间")
+
     status = Column(String(20), default="草稿", comment="状态: 草稿/已确认/已发放")
     remark = Column(String(255), comment="备注")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     employee = relationship("Employee")
+    items = relationship("PayrollItem", back_populates="payroll")
+    bonus_links = relationship("PerformanceBonusLink", back_populates="payroll")
+
+
+class PayrollItem(Base):
+    """动态薪资项 (每工资条可自定义收入/扣款行)"""
+    __tablename__ = "payroll_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    payroll_id = Column(Integer, ForeignKey("payrolls.id"), comment="所属工资条")
+    name = Column(String(50), nullable=False, comment="项目名称")
+    type = Column(String(10), nullable=False, comment="类型: income/deduction")
+    amount = Column(Float, default=0, comment="金额")
+    is_taxable = Column(Integer, default=1, comment="是否计税")
+    sort_order = Column(Integer, default=0, comment="排序")
+
+    payroll = relationship("Payroll", back_populates="items")
+
+
+class SpecialDeduction(Base):
+    """专项附加扣除"""
+    __tablename__ = "special_deductions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), comment="员工ID")
+    year = Column(Integer, comment="年份")
+    deduction_type = Column(String(20), nullable=False, comment="类型: 子女教育/继续教育/大病医疗/住房贷款利息/住房租金/赡养老人/婴幼儿照护")
+    amount = Column(Float, default=0, comment="月度扣除金额")
+    remark = Column(String(200), comment="备注")
+
+    employee = relationship("Employee")
+
+
+class PerformanceBonusLink(Base):
+    """绩效-薪酬联动记录"""
+    __tablename__ = "performance_bonus_links"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    payroll_id = Column(Integer, ForeignKey("payrolls.id"), comment="工资条ID")
+    assessment_id = Column(Integer, ForeignKey("performance_assessments.id"), comment="绩效评估ID")
+    coefficient = Column(Float, default=1.0, comment="奖金系数")
+    bonus_amount = Column(Float, default=0, comment="奖金金额")
+
+    payroll = relationship("Payroll", back_populates="bonus_links")
+    assessment = relationship("PerformanceAssessment")
 
 
 class SocialInsurance(Base):

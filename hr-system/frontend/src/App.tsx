@@ -13,8 +13,14 @@ import TrainingPlans from './pages/Training/Plans';
 import TrainingRecords from './pages/Training/Records';
 import PerformancePlans from './pages/Performance/Plans';
 import PerformanceAssessments from './pages/Performance/Assessments';
+import AssessmentDetail from './pages/Performance/AssessmentDetail';
+import EmployeeTimeline from './pages/Performance/EmployeeTimeline';
 import PayrollList from './pages/Payroll/List';
 import PayrollSummary from './pages/Payroll/Summary';
+import Payslip from './pages/Payroll/Payslip';
+import PayrollDashboard from './pages/Payroll/PayrollDashboard';
+import TemplateManager from './pages/Payroll/TemplateManager';
+import EmployeeHistory from './pages/Payroll/EmployeeHistory';
 import ContractList from './pages/Contract/List';
 import ContractOnboarding from './pages/Contract/Onboarding';
 import ContractResignation from './pages/Contract/Resignation';
@@ -44,8 +50,14 @@ export default function App() {
               <Route path="training/records" element={<TrainingRecords />} />
               <Route path="performance/plans" element={<PerformancePlans />} />
               <Route path="performance/assessments" element={<PerformanceAssessments />} />
+              <Route path="performance/assessments/:id" element={<AssessmentDetail />} />
+              <Route path="performance/employee/:employeeId" element={<EmployeeTimeline />} />
               <Route path="payroll/list" element={<PayrollList />} />
               <Route path="payroll/summary" element={<PayrollSummary />} />
+              <Route path="payroll/payslip/:id" element={<Payslip />} />
+              <Route path="payroll/dashboard" element={<PayrollDashboard />} />
+              <Route path="payroll/templates" element={<TemplateManager />} />
+              <Route path="payroll/history/:employeeId" element={<EmployeeHistory />} />
               <Route path="contracts/list" element={<ContractList />} />
               <Route path="contracts/onboarding" element={<ContractOnboarding />} />
               <Route path="contracts/resignation" element={<ContractResignation />} />
